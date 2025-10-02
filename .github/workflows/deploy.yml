@@ -48,7 +48,7 @@ jobs:
 
       - name: Setup S3 bucket for SAM
         run: |
-          BUCKET_NAME="sam-deploy-bucket-shared"
+          BUCKET_NAME="sam-deploy-bucket-shared-hong"
           # 버킷이 존재하지 않으면 생성
           if ! aws s3 ls s3://$BUCKET_NAME --region ap-northeast-2 2>/dev/null; then
             echo "Creating S3 bucket: $BUCKET_NAME"
