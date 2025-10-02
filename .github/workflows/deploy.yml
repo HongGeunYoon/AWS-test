@@ -1,0 +1,61 @@
+name: Deploy FastAPI to Lambda (SAM)
+
+on:
+  push:
+    branches: [ main ]   # 원하시는 브랜치로 변경
+
+permissions:
+  id-token: write   # OIDC로 AWS AssumeRole
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::304106859318:role/pongRole
+          aws-region: ap-northeast-2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SAM CLI
+        run: |
+          pip install aws-sam-cli
+
+      - name: SAM build
+        run: sam build --use-container
+
+      - name: Delete failed stack if exists
+        run: |
+          aws cloudformation describe-stacks --stack-name fastapi-auto-role --region ap-northeast-2 || echo "Stack does not exist"
+          if aws cloudformation describe-stacks --stack-name fastapi-auto-role --region ap-northeast-2 --query 'Stacks[0].StackStatus' --output text | grep -E "(ROLLBACK_COMPLETE|CREATE_FAILED|UPDATE_ROLLBACK_COMPLETE)"; then
+            echo "Deleting failed stack..."
+            aws cloudformation delete-stack --stack-name fastapi-auto-role --region ap-northeast-2
+            aws cloudformation wait stack-delete-complete --stack-name fastapi-auto-role --region ap-northeast-2
+            echo "Stack deleted successfully"
+          else
+            echo "Stack is in good state or does not exist"
+          fi
+        continue-on-error: true
+
+      - name: Setup S3 bucket for SAM
+        run: |
+          BUCKET_NAME="sam-deploy-bucket-shared"
+          # 버킷이 존재하지 않으면 생성
+          if ! aws s3 ls s3://$BUCKET_NAME --region ap-northeast-2 2>/dev/null; then
+            echo "Creating S3 bucket: $BUCKET_NAME"
+            aws s3 mb s3://$BUCKET_NAME --region ap-northeast-2
+          else
+            echo "Using existing S3 bucket: $BUCKET_NAME"
+          fi
+
+      - name: SAM deploy (non-interactive)
+        run: sam deploy
