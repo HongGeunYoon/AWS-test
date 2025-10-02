@@ -1,0 +1,9 @@
+# samconfig.toml
+version = 0.1
+[default.deploy.parameters]
+stack_name = "fastapi-auto-role"
+region = "ap-northeast-2"
+s3_bucket = "sam-deploy-bucket-shared"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = false
+fail_on_empty_changeset = false
